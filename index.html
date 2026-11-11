@@ -150,6 +150,15 @@ button{font-family:inherit}
 .crow:active{background:var(--soft)}
 .cn{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.03em}
 .cn .fv{color:#c9a227;margin-right:2px}
+.cstar{border:0;background:none;color:#b8bfb9;font-size:17px;line-height:1;padding:6px 5px 6px 0;margin-left:-2px;cursor:pointer;vertical-align:-1px}
+.cstar.on{color:#d4a514}
+.sfav{position:absolute;right:56px;top:14px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;
+  border-radius:999px;height:34px;padding:0 12px;font-size:13px;font-weight:700;cursor:pointer}
+.shead h2{margin-top:20px}
+.sfav.on{background:var(--gold);border-color:var(--gold);color:#3a2c00}
+#toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);background:#132018;color:#fff;padding:10px 16px;border-radius:999px;
+  font-size:14px;font-weight:700;opacity:0;pointer-events:none;transition:all .2s;z-index:50;white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+#toast.on{opacity:1;transform:translate(-50%,0)}
 .prow{height:42px}
 .prow .cn{font-size:14.5px;font-weight:800;line-height:1.15;letter-spacing:-.05em}
 .prow .cn small{display:block;font-size:11px;font-weight:600;color:var(--sub);letter-spacing:0}
@@ -173,6 +182,8 @@ button{font-family:inherit}
 .viewtg{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);padding:4px;border-radius:14px;margin-top:6px;box-shadow:var(--shadow)}
 .viewtg button{flex:1;border:0;background:transparent;color:var(--sub);padding:10px;border-radius:10px;font-size:15px;cursor:pointer;font-weight:600}
 .viewtg button.on{background:var(--g2);color:#fff;font-weight:800}
+.viewtg button{display:flex;align-items:center;justify-content:center;gap:7px}
+.vi{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 /* ───── 지도 ───── */
 .mapbox{position:relative;z-index:0;margin-top:12px;border-radius:22px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);background:var(--card)}
@@ -271,8 +282,8 @@ button{font-family:inherit}
 
 <main class="wrap">
   <div class="viewtg" id="viewtg">
-    <button class="on" onclick="setView('list')">📋 목록</button>
-    <button onclick="setView('map')">🗺️ 지도</button>
+    <button class="on" onclick="setView('list')"><svg class="vi" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><line x1="7.5" y1="9" x2="16.5" y2="9"/><line x1="7.5" y1="12.5" x2="16.5" y2="12.5"/><line x1="7.5" y1="16" x2="13" y2="16"/></svg>목록</button>
+    <button onclick="setView('map')"><svg class="vi" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10.3" r="2.4"/></svg>지도</button>
   </div>
   <div class="search">
     <span class="sic">🔍</span>
@@ -642,7 +653,7 @@ function drawList(){
   if(REGION!=="★ 즐겨찾기"){ $("list").className=""; $("list").innerHTML=compactHTML(idx); return; }
   $("list").className="grid";
   $("list").innerHTML=idx.length?idx.map(i=>cardHTML(i,g)).join("")
-    :`<div class="empty">☆를 눌러 자주 가는 골프장을 즐겨찾기에 넣어 보세요.</div>`;
+    :`<div class="empty">아직 즐겨찾기한 골프장이 없어요.<br>목록에서 골프장 이름 앞의 <b style="color:#c9a227">☆</b>를 누르거나,<br>골프장 상세 화면 위의 <b>☆ 즐겨찾기</b>를 눌러 보세요.</div>`;
 }
 function clearQ(){ if(Q){ Q=""; $("q").value=""; $("qx").classList.remove("on"); } }
 
@@ -657,7 +668,7 @@ function compactRow(i){
   const dt=d==null?"-":Math.abs(d)<1?"비슷":(d<0?"▼":"▲")+r0(Math.abs(d));
   const rainOn=s.prob>=30||s.rain>=0.5, windOn=s.wind>=7||s.gust>=12;
   return `<div class="crow" style="--c:${w.col}" onclick="openSheet(${i})">
-    <span class="cn">${FAV.includes(c.n)?'<b class="fv">★</b>':""}${short}</span>
+    <span class="cn"><button class="cstar ${FAV.includes(c.n)?"on":""}" aria-label="즐겨찾기" onclick="toggleFav(event,${i})">${FAV.includes(c.n)?"★":"☆"}</button>${short}</span>
     <span class="ci">${ic}</span>
     <span class="ct"><b class="lo">${r0(s.tmin)}</b><i>/</i><b class="hi">${r0(s.tmax)}</b></span>
     <span class="cr ${rainOn?"on":""}">${s.prob??0}%</span>
@@ -704,8 +715,13 @@ function setDay(i){DAY=i;drawAll();}
 function setRegion(r){REGION=r;drawHero();drawList();drawMap(true);}
 function pickProv(r){ clearQ(); setRegion(REGION===r?"전체":r);
   const t=$("viewtg"); window.scrollTo({top:t.getBoundingClientRect().top+scrollY-8,behavior:"smooth"}); }
-function toggleFav(e,i){ e.stopPropagation(); const k=COURSES[i].n;
-  FAV=FAV.includes(k)?FAV.filter(x=>x!==k):[...FAV,k]; saveFav(); drawList(); drawMap(); }
+function toggleFav(e,i){ if(e&&e.stopPropagation) e.stopPropagation(); const k=COURSES[i].n;
+  const add=!FAV.includes(k);
+  FAV=add?[...FAV,k]:FAV.filter(x=>x!==k); saveFav(); drawList(); drawMap();
+  if(OPEN!=null) openSheet(OPEN,true);
+  toast(add?`★ ${k} 즐겨찾기에 넣었어요`:`☆ ${k} 즐겨찾기에서 뺐어요`); }
+function toast(t){ let el=$("toast"); if(!el){ el=document.createElement("div"); el.id="toast"; document.body.appendChild(el); }
+  el.textContent=t; el.classList.add("on"); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("on"),1800); }
 
 // ───── 지도 ─────
 let VIEW="list", MAP=null, LAYER=null;
@@ -829,6 +845,7 @@ function openSheet(i,keep){
     <div class="shead">
       <div class="grab"></div>
       <button class="close" onclick="closeSheet()" aria-label="닫기">✕</button>
+      <button class="sfav ${FAV.includes(c.n)?"on":""}" onclick="toggleFav(event,${i})">${FAV.includes(c.n)?"★ 즐겨찾기 됨":"☆ 즐겨찾기"}</button>
       <h2>${c.n}</h2>
       <div class="addr">📍 ${c.ad}<a href="https://map.kakao.com/link/search/${encodeURIComponent(c.n)}" target="_blank" rel="noopener">지도 ›</a></div>
       <div class="now"><span class="e">${ic}</span>

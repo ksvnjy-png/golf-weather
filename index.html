@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b3d26">
+<title>전국 골프장 날씨</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{
+  --bg:#eef3ef; --card:#ffffff; --ink:#132018; --sub:#62726a; --line:#e3ebe5; --soft:#f4f8f5;
+  --g1:#0b3d26; --g2:#14633d; --g3:#2f9e5f; --gold:#e8c35a;
+  --cold:#2f6fe0; --cold-soft:#e6efff; --warm:#e0601f; --warm-soft:#fff0e6;
+  --same:#6b7280; --same-soft:#eef0f2; --rain:#1597b8;
+  --shadow:0 6px 20px rgba(16,48,30,.08), 0 1px 3px rgba(16,48,30,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#08110c; --card:#121d16; --ink:#e8f1ea; --sub:#93a69a; --line:#223228; --soft:#18261d;
+    --cold:#7fa9ff; --cold-soft:#17233b; --warm:#ff9a63; --warm-soft:#33200f;
+    --same:#a3aab4; --same-soft:#232a30; --rain:#4cc6e0; --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#08110c; --card:#121d16; --ink:#e8f1ea; --sub:#93a69a; --line:#223228; --soft:#18261d;
+  --cold:#7fa9ff; --cold-soft:#17233b; --warm:#ff9a63; --warm-soft:#33200f;
+  --same:#a3aab4; --same-soft:#232a30; --rain:#4cc6e0; --shadow:none;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  font-size:16px;line-height:1.45;letter-spacing:-.01em}
+button{font-family:inherit}
+.wi{width:1em;height:1em;display:inline-block;vertical-align:-.18em;overflow:visible}
+
+/* ───── 위쪽 큰 머리판 ───── */
+.hero{position:relative;overflow:hidden;color:#fff;
+  background:
+    radial-gradient(120% 80% at 85% -10%, rgba(232,195,90,.35), transparent 55%),
+    repeating-linear-gradient(115deg, rgba(255,255,255,.035) 0 34px, rgba(255,255,255,0) 34px 68px),
+    linear-gradient(160deg,var(--g2) 0%,var(--g1) 70%);
+  padding:22px 16px 26px;border-radius:0 0 28px 28px}
+.hero .in{max-width:1000px;margin:0 auto}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.14);
+  display:grid;place-items:center;font-size:22px;backdrop-filter:blur(4px)}
+.brand h1{margin:0;font-size:20px;font-weight:800;letter-spacing:-.02em}
+.brand .upd{font-size:12.5px;opacity:.75}
+.refresh{margin-left:auto;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;
+  border-radius:999px;padding:7px 12px;font-size:13px;cursor:pointer;white-space:nowrap;flex:none}
+.refresh:hover{background:rgba(255,255,255,.2)}
+.seg{display:flex;gap:4px;background:rgba(0,0,0,.22);padding:4px;border-radius:14px;margin:18px 0 0;overflow-x:auto;scrollbar-width:none}
+.seg::-webkit-scrollbar{display:none}
+.seg button em{font-style:normal;font-size:12px;margin-left:1px}
+.seg button.today{flex-basis:72px}
+.seg button{flex:1 0 46px;border:0;background:transparent;color:rgba(255,255,255,.8);padding:9px 4px;border-radius:10px;
+  font-size:14.5px;cursor:pointer;line-height:1.2}
+.seg button small{display:block;font-size:11.5px;opacity:.8}
+.seg button.on{background:#fff;color:var(--g1);font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.big{display:flex;align-items:flex-end;gap:16px;margin-top:20px;flex-wrap:wrap}
+.big .num{font-size:64px;font-weight:800;line-height:.9;letter-spacing:-.04em}
+.big .num sup{font-size:26px;vertical-align:top;margin-left:2px}
+.big .cap{font-size:13px;opacity:.8}
+.big .cmp{font-size:19px;font-weight:700}
+.pcap{font-size:13px;opacity:.9;margin:18px 2px 8px}
+.pcap span{opacity:.75;font-size:11.5px}
+.ptiles{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+@media (min-width:640px){ .ptiles{grid-template-columns:repeat(5,1fr)} }
+.pt{position:relative;display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;align-items:center;column-gap:6px;
+  text-align:left;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.1);color:#fff;border-radius:14px;
+  padding:7px 10px 7px 13px;cursor:pointer;overflow:hidden;backdrop-filter:blur(4px)}
+.pt::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--c)}
+.pt.on{background:#fff;color:var(--g1);border-color:#fff}
+.pt .pn{grid-column:1/3;font-size:12.5px;font-weight:800;letter-spacing:-.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pt .pw{grid-row:2;font-size:22px;line-height:1}
+.pt .pf{grid-row:2;font-size:24px;font-weight:800;letter-spacing:-.03em;line-height:1.05}
+.pt .pd{grid-column:3;grid-row:1/3;font-size:13px;font-weight:800;padding:3px 7px;border-radius:999px;background:rgba(255,255,255,.14)}
+.pt .pd.w{color:#ffb38a} .pt .pd.c{color:#a9c6ff} .pt .pd.f{color:rgba(255,255,255,.75);font-weight:600}
+.pt.on .pd{background:var(--soft)} .pt.on .pd.w{color:var(--warm)} .pt.on .pd.c{color:var(--cold)} .pt.on .pd.f{color:var(--same)}
+.pt .pr{position:absolute;right:8px;top:4px;font-size:10.5px;font-weight:700;color:#bfefff}
+.pt.on .pr{color:var(--rain)}
+.pillrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.pill{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.18);border-radius:999px;
+  padding:7px 12px;font-size:13.5px;backdrop-filter:blur(4px)}
+.pill b{color:var(--gold)}
+
+/* ───── 지역 고르기 ───── */
+.wrap{max-width:1000px;margin:0 auto;padding:0 16px 48px}
+.search{position:relative;margin-top:12px}
+.search input{width:100%;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:14px;
+  padding:12px 40px 12px 42px;font-size:16px;font-family:inherit;outline:none;box-shadow:var(--shadow);-webkit-appearance:none}
+.search input:focus{border-color:var(--g3)}
+.search input::-webkit-search-cancel-button{display:none}
+.search .sic{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;opacity:.7}
+.search .qx{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:var(--soft);color:var(--sub);
+  width:28px;height:28px;border-radius:999px;cursor:pointer;display:none}
+.search .qx.on{display:block}
+.regions{display:flex;gap:8px;overflow-x:auto;padding:12px 0 4px;scrollbar-width:none}
+.regions::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 15px;
+  border-radius:999px;font-size:14.5px;cursor:pointer}
+.chip.on{background:var(--g2);border-color:var(--g2);color:#fff;font-weight:700}
+.secttl{display:flex;align-items:baseline;justify-content:space-between;margin:14px 2px 10px}
+.secttl h2{font-size:17px;margin:0}
+.secttl span{font-size:12.5px;color:var(--sub)}
+
+/* ───── 골프장 카드 ───── */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.card{background:var(--card);border-radius:22px;box-shadow:var(--shadow);border:1px solid var(--line);
+  cursor:pointer;overflow:hidden;transition:transform .15s ease, box-shadow .15s ease}
+.card:hover{transform:translateY(-2px)}
+.cbody{padding:16px 16px 12px}
+.ctop{display:flex;gap:8px;align-items:flex-start}
+.star{background:none;border:0;font-size:21px;cursor:pointer;padding:0;color:#c9a227;line-height:1.1}
+.cname{font-weight:800;font-size:17.5px;letter-spacing:-.02em}
+.carea{font-size:12.5px;color:var(--sub)}
+.cicon{margin-left:auto;text-align:center;font-size:12px;color:var(--sub);min-width:62px}
+.cicon .e{font-size:34px;line-height:1;display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.12))}
+.trow{display:flex;align-items:center;gap:10px;margin:12px 0 4px}
+.tlo{color:var(--cold);font-weight:800;font-size:22px;min-width:40px}
+.thi{color:var(--warm);font-weight:800;font-size:22px;min-width:40px;text-align:right}
+.track{flex:1;height:8px;border-radius:99px;background:var(--soft);position:relative}
+.track i{position:absolute;top:0;bottom:0;border-radius:99px;background:linear-gradient(90deg,#5b8dff,#ffc04d,#ff7a3d)}
+.feel{font-size:13px;color:var(--sub);text-align:center}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:999px;font-weight:700;font-size:13.5px;margin-top:10px}
+.badge.cold{background:var(--cold-soft);color:var(--cold)}
+.badge.warm{background:var(--warm-soft);color:var(--warm)}
+.badge.same{background:var(--same-soft);color:var(--same)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.stat{background:var(--soft);border-radius:14px;padding:8px 6px;text-align:center}
+.stat .k{display:block;font-size:11.5px;color:var(--sub)}
+.stat .v{font-weight:800;font-size:15px}
+.stat .v small{font-weight:600;font-size:11.5px;color:var(--sub)}
+.wearbar{display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13.5px;color:#fff}
+.wearbar .lv{font-weight:800;white-space:nowrap}
+.wearbar .tx{opacity:.92;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 간략표 */
+.ctable{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:hidden}
+.chead,.crow{display:grid;grid-template-columns:minmax(0,1fr) 26px 58px 40px 32px 40px;align-items:center;gap:4px;padding:0 12px 0 14px}
+.chead{font-size:11px;color:var(--sub);padding-top:9px;padding-bottom:7px;background:var(--soft);font-weight:600}
+.chead span:not(:first-child){text-align:center}
+.cgroup{font-size:12.5px;font-weight:800;color:var(--g2);padding:9px 14px 4px;cursor:pointer;border-top:1px solid var(--line)}
+.cgroup small{font-weight:600;color:var(--sub);margin-left:4px}
+.crow{position:relative;height:33px;font-size:14px;cursor:pointer;border-top:1px dashed var(--line)}
+.cgroup + .crow{border-top:0}
+.crow::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:5px;border-radius:0 4px 4px 0;background:var(--c)}
+.crow:active{background:var(--soft)}
+.cn{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.03em}
+.cn .fv{color:#c9a227;margin-right:2px}
+.prow{height:42px}
+.prow .cn{font-size:14.5px;font-weight:800;line-height:1.15;letter-spacing:-.05em}
+.prow .cn small{display:block;font-size:11px;font-weight:600;color:var(--sub);letter-spacing:0}
+.ci{font-size:19px;text-align:center}
+.ct{text-align:center;font-size:14.5px;white-space:nowrap}
+.ct .lo{color:var(--cold)} .ct .hi{color:var(--warm)} .ct i{color:var(--sub);font-style:normal;margin:0 1px}
+.cr,.cw{text-align:center;font-size:13px;color:var(--sub)}
+.cr.on{color:#fff;background:var(--rain);border-radius:8px;font-weight:800;padding:2px 0}
+.cw.on{color:#fff;background:#6b7280;border-radius:8px;font-weight:800;padding:2px 0}
+.cd{text-align:center;font-size:13px;font-weight:800}
+.cd.up{color:var(--warm)} .cd.down{color:var(--cold)} .cd.flat{color:var(--same);font-weight:600}
+.cfoot{font-size:11px;color:var(--sub);padding:9px 14px 11px;border-top:1px solid var(--line);background:var(--soft)}
+.empty{grid-column:1/-1;text-align:center;color:var(--sub);padding:40px 0}
+.err{grid-column:1/-1;background:var(--warm-soft);color:var(--warm);padding:16px;border-radius:16px}
+.skel{height:230px;border-radius:22px;background:linear-gradient(90deg,var(--card),var(--soft),var(--card));
+  background-size:200% 100%;animation:sk 1.2s infinite}
+@keyframes sk{to{background-position:-200% 0}}
+.note{color:var(--sub);font-size:12.5px;margin-top:26px;line-height:1.7;background:var(--card);border-radius:16px;padding:14px 16px;border:1px solid var(--line)}
+
+/* ───── 목록·지도 바꾸기 ───── */
+.viewtg{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);padding:4px;border-radius:14px;margin-top:6px;box-shadow:var(--shadow)}
+.viewtg button{flex:1;border:0;background:transparent;color:var(--sub);padding:10px;border-radius:10px;font-size:15px;cursor:pointer;font-weight:600}
+.viewtg button.on{background:var(--g2);color:#fff;font-weight:800}
+
+/* ───── 지도 ───── */
+.mapbox{position:relative;z-index:0;margin-top:12px;border-radius:22px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);background:var(--card)}
+#map{height:min(72vh,620px);width:100%;background:#dfe8e2}
+.mapleg{background:var(--card);color:var(--ink);border-top:1px solid var(--line);padding:10px 14px;font-size:12.5px;line-height:1.65}
+.pmk{display:inline-flex;align-items:center;gap:4px;background:#fff;color:#132018;border:2.5px solid var(--c);border-radius:999px;
+  padding:2px 9px 2px 3px;box-shadow:0 3px 10px rgba(0,0,0,.25);white-space:nowrap;font-weight:800;font-size:13px;cursor:pointer;
+  position:relative;left:50%;transform:translateX(-50%)}
+.pmk b{background:#0b3d26;color:#fff;border-radius:999px;padding:1px 7px;font-size:12px;letter-spacing:-.03em}
+.pmk .wi{font-size:18px}
+.pmk .lo{color:#2f6fe0} .pmk .hi{color:#e0601f}
+.pmk .w{font-size:11px;font-weight:700;color:#1597b8}
+.pmk:hover{transform:translateX(-50%) scale(1.06)}
+.dot{width:16px;height:16px;border-radius:50%;background:var(--c);border:2.5px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35);cursor:pointer}
+.mapleg .sw{display:inline-flex;gap:3px;vertical-align:-2px}
+.mapleg .sw i{width:12px;height:12px;border-radius:4px;display:inline-block}
+.mk{display:flex;flex-direction:column;align-items:center;cursor:pointer;transform:translateY(-6px)}
+.mk .bub{display:flex;align-items:center;gap:4px;background:#fff;color:#132018;border:2.5px solid var(--c);border-radius:999px;
+  padding:2px 8px 2px 4px;box-shadow:0 3px 10px rgba(0,0,0,.22);white-space:nowrap;font-weight:800;font-size:13px;line-height:1.2}
+.mk .bub .e{font-size:18px}
+.mk .bub .lo{color:#2f6fe0} .mk .bub .hi{color:#e0601f}
+.mk .bub .w{font-size:11px;font-weight:700;color:#1597b8;margin-left:2px}
+.mk .tail{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid var(--c);margin-top:-1px}
+.mk .nm{margin-top:2px;font-size:12px;font-weight:800;color:#fff;white-space:nowrap;letter-spacing:-.02em;
+  background:#0b3d26;border:1.5px solid #fff;border-radius:7px;padding:1px 7px;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.mk .nm .fv{color:var(--gold)}
+.mk:hover .bub{transform:scale(1.08)}
+.leaflet-div-icon.mkwrap{background:none;border:0}
+.osm{filter:saturate(.55) brightness(1.04)}
+.leaflet-container{font-family:inherit}
+
+/* ───── 자세히 보기 ───── */
+.dim{position:fixed;inset:0;background:rgba(5,15,9,.55);opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
+.dim.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:50%;bottom:0;width:100%;max-width:720px;max-height:92vh;overflow:auto;
+  background:var(--bg);border-radius:26px 26px 0 0;z-index:11;transform:translate(-50%,105%);transition:transform .25s ease}
+.sheet.on{transform:translate(-50%,0)}
+.shead{color:#fff;padding:18px 18px 22px;position:relative;border-radius:26px 26px 0 0;
+  background:linear-gradient(160deg,var(--g2),var(--g1))}
+.grab{width:42px;height:5px;border-radius:9px;background:rgba(255,255,255,.4);margin:0 auto 12px}
+.close{position:absolute;right:14px;top:14px;border:0;background:rgba(255,255,255,.18);color:#fff;
+  border-radius:999px;width:34px;height:34px;font-size:16px;cursor:pointer}
+.shead h2{margin:0;font-size:22px;letter-spacing:-.02em}
+.shead .addr{font-size:12.5px;opacity:.8;margin-top:2px}
+.shead .addr a{color:var(--gold);text-decoration:none;margin-left:6px}
+.shead .now{display:flex;align-items:center;gap:14px;margin-top:14px}
+.shead .now .e{font-size:52px;line-height:1}
+.shead .now .t{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.shead .now .s{font-size:13.5px;opacity:.85}
+.sbody{padding:14px 16px 32px}
+.box{background:var(--card);border-radius:20px;padding:14px 16px;margin-top:12px;border:1px solid var(--line)}
+.box h3{margin:0 0 10px;font-size:15.5px}
+.box h3 small{font-weight:500;color:var(--sub);font-size:12px;margin-left:4px}
+.kv{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.kv div{background:var(--soft);border-radius:14px;padding:10px 12px}
+.kv .k{font-size:12px;color:var(--sub);display:block}
+.kv .v{font-size:18px;font-weight:800}
+.kv .v small{font-size:12.5px;font-weight:600;color:var(--sub)}
+.cmprow{display:grid;grid-template-columns:96px 1fr 62px;align-items:center;gap:8px;margin:9px 0;font-size:14px}
+.cmprow .bars{display:flex;flex-direction:column;gap:4px}
+.cmprow .b{height:10px;border-radius:99px;position:relative;background:var(--soft)}
+.cmprow .b i{position:absolute;left:0;top:0;bottom:0;border-radius:99px}
+.cmprow .b.y i{background:#b9c5bd}
+.cmprow .b.t i{background:var(--g3)}
+.cmprow .d{text-align:right;font-weight:800}
+.legend{font-size:12px;color:var(--sub);display:flex;gap:12px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.up{color:var(--warm)} .down{color:var(--cold)} .flat{color:var(--same)}
+.hours{overflow-x:auto;margin:0 -4px;padding-bottom:4px}
+.hours svg{display:block}
+.wearhead{display:flex;align-items:center;gap:12px;border-radius:16px;padding:12px 14px;color:#fff}
+.wearhead .em{font-size:34px}
+.wearhead b{font-size:17px;display:block}
+.wearhead span{font-size:12.5px;opacity:.9}
+.wl{list-style:none;padding:0;margin:10px 0 0}
+.wl li{display:flex;gap:10px;padding:9px 2px;border-bottom:1px dashed var(--line);font-size:14.5px}
+.wl li:last-child{border-bottom:0}
+.wl .i{font-size:20px;width:26px;text-align:center}
+.wl .lab{color:var(--sub);font-size:12px;display:block}
+.tip{display:flex;gap:8px;background:var(--soft);border-radius:12px;padding:9px 12px;margin-top:8px;font-size:13.5px}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="in">
+    <div class="brand">
+      <div class="logo">⛳</div>
+      <div><h1>전국 골프장 날씨</h1><div class="upd" id="upd">불러오는 중…</div></div>
+      <button class="refresh" onclick="load()">↻ 새로고침</button>
+    </div>
+    <div class="seg" id="days"></div>
+    <div id="heroSum"></div>
+  </div>
+</section>
+
+<main class="wrap">
+  <div class="viewtg" id="viewtg">
+    <button class="on" onclick="setView('list')">📋 목록</button>
+    <button onclick="setView('map')">🗺️ 지도</button>
+  </div>
+  <div class="search">
+    <span class="sic">🔍</span>
+    <input id="q" type="search" placeholder="골프장 이름 검색 (예: 남서울, 포천)" autocomplete="off" oninput="setQuery(this.value)">
+    <button id="qx" class="qx" onclick="setQuery('');$('q').value='';$('q').focus()" aria-label="지우기">✕</button>
+  </div>
+  <div class="regions" id="regions"></div>
+  <div id="listView">
+    <div class="secttl"><h2 id="listTitle">골프장</h2><span id="listHint">카드를 누르면 시간별 날씨</span></div>
+    <div id="list" class="grid">
+      <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+    </div>
+  </div>
+  <div id="mapView" style="display:none">
+    <div class="mapbox">
+      <div id="map"></div>
+      <div class="mapleg">
+        <b>숫자</b> <span style="color:#2f6fe0">최저</span>/<span style="color:#e0601f">최고</span> 기온 · <span style="color:#1597b8">☔ 비 확률</span> · 💨 강풍<br>
+        <b>테두리 색</b> = 복장 단계
+        <span class="sw"><i style="background:#e0601f"></i><i style="background:#2f9e5f"></i><i style="background:#2f6fe0"></i><i style="background:#4b3fb5"></i></span> 더움→추움<br>
+        <span id="mapHint"></span>
+      </div>
+    </div>
+  </div>
+  <div class="note">
+    · 비·바람은 <b>라운드 시간(오전 6시 ~ 오후 6시)</b> 기준, 기온은 하루 최저·최고예요.<br>
+    · <b>체감온도</b>는 바람·습도까지 따진 '몸으로 느끼는 온도'예요. "어제보다"는 낮(7~16시) 체감온도 평균을 비교한 값이에요.<br>
+    · 복장 추천은 낮 체감온도 기준이에요. 반바지 등 복장 규정은 골프장마다 달라요.<br>
+    · 골프장 위치: 전국 10개 지역 골프장을 카카오맵에서 찾은 주소·좌표(2026-11-11 확인). 목록에 없는 골프장은 넣어 달라고 하시면 돼요. 날씨는 그 지점 예보예요.<br>
+    · 날씨 자료: Open-Meteo 무료 예보(스위스, 여러 나라 기상 모델을 합친 예보). 기상청 발표와 조금 다를 수 있어요.<br>
+    · 화면을 열어 두면 <b>1시간마다 저절로</b> 새 예보를 받아 와요. ★를 누르면 자주 가는 곳이 맨 앞에 와요.
+  </div>
+</main>
+
+<div class="dim" id="dim"></div>
+<div class="sheet" id="sheet"></div>
+
+<script>
+// ───── 골프장 목록 (카카오맵 검색, 2026-11-11) ─────
+const COURSES = [
+  {n:"남서울CC",            r:"경기 남부", a:"성남 분당",   ad:"경기 성남시 분당구 판교백현로 161",          lat:37.38174, lon:127.08264},
+  {n:"88CC",                r:"경기 남부", a:"용인 기흥",   ad:"경기 용인시 기흥구 석성로521번길 169",       lat:37.30281, lon:127.16679},
+  {n:"레이크사이드CC",      r:"경기 남부", a:"용인 모현",   ad:"경기 용인시 처인구 모현읍 능원로 181",       lat:37.31944, lon:127.17914},
+  {n:"아시아나CC",          r:"경기 남부", a:"용인 양지",   ad:"경기 용인시 처인구 양지읍 양대로 290",       lat:37.25453, lon:127.28895},
+  {n:"안양CC",              r:"경기 남부", a:"군포",        ad:"경기 군포시 군포로 364",                     lat:37.33930, lon:126.93993},
+  {n:"리베라CC",            r:"경기 남부", a:"화성 동탄",   ad:"경기 화성시 동탄구 중리길 183",              lat:37.19028, lon:127.11276},
+  {n:"안성베네스트GC",      r:"경기 남부", a:"안성 금광",   ad:"경기 안성시 금광면 삼흥로 660",              lat:37.02099, lon:127.38501},
+  {n:"남촌CC",              r:"경기 동부", a:"광주 곤지암", ad:"경기 광주시 곤지암읍 부항길 135-38",         lat:37.34811, lon:127.41540},
+  {n:"곤지암GC",            r:"경기 동부", a:"광주 도척",   ad:"경기 광주시 도척면 도척윗로 280",            lat:37.33325, lon:127.29537},
+  {n:"이스트밸리CC",        r:"경기 동부", a:"광주 곤지암", ad:"경기 광주시 곤지암읍 건업길 195",            lat:37.40574, lon:127.38467},
+  {n:"블루헤런CC",          r:"경기 동부", a:"여주 대신",   ad:"경기 여주시 대신면 고달사로 67",             lat:37.38443, lon:127.64794},
+  {n:"해슬리나인브릿지",    r:"경기 동부", a:"여주",        ad:"경기 여주시 명품1로 76",                     lat:37.25073, lon:127.61764},
+  {n:"서원밸리CC",          r:"경기 북부", a:"파주 광탄",   ad:"경기 파주시 광탄면 서원길 333",              lat:37.82466, lon:126.89330},
+  {n:"서울한양CC",          r:"경기 북부", a:"고양 덕양",   ad:"경기 고양시 덕양구 고양대로1643번길 164",    lat:37.65702, lon:126.85442},
+  {n:"레이크우드CC",        r:"경기 북부", a:"양주",        ad:"경기 양주시 만송로 244",                     lat:37.78410, lon:127.08959},
+  {n:"포천힐스CC",          r:"경기 북부", a:"포천 군내",   ad:"경기 포천시 군내면 상성북리 34-4",           lat:37.88327, lon:127.24435},
+  {n:"일동레이크GC",        r:"경기 북부", a:"포천 일동",   ad:"경기 포천시 일동면 화동로 738",              lat:37.92862, lon:127.31963},
+  {n:"가평베네스트GC",      r:"경기 북부", a:"가평 상면",   ad:"경기 가평군 상면 둔덕말길 232",              lat:37.79718, lon:127.30548},
+  {n:"클럽72CC",            r:"인천",      a:"영종도",      ad:"인천 영종구 공항동로 392",                   lat:37.48341, lon:126.46882},
+  {n:"잭니클라우스GC코리아",r:"인천",      a:"송도",        ad:"인천 연수구 아카데미로 209",                 lat:37.38050, lon:126.62439},
+  {n:"베어즈베스트청라GC",  r:"인천",      a:"청라",        ad:"인천 서해구 청라동 9-90",                    lat:37.54473, lon:126.63468},
+  {n:"드림파크CC",          r:"인천",      a:"검단",        ad:"인천 검단구 자원순환로260번길 46",           lat:37.57266, lon:126.64358},
+];
+// 경기 남부·동부·북부 → 경기 하나로
+COURSES.forEach(c=>{ if(c.r.startsWith("경기")) c.r="경기"; });
+// 전국 (카카오맵 검색, 2026-11-11) — [이름, 도, 지역, 주소, 위도, 경도]
+[
+ ["오크밸리CC","강원","원주","강원 원주시 지정면 월송석화로 950",37.43809,127.81376],
+ ["휘슬링락CC","강원","춘천","강원 춘천시 남산면 동촌로 501",37.77012,127.67845],
+ ["라데나GC","강원","춘천","강원 춘천시 신동면 칠전동길 72",37.84124,127.71866],
+ ["엘리시안강촌CC","강원","춘천","강원 춘천시 남산면 북한강변길 688",37.82995,127.57857],
+ ["소노펠리체CC 비발디파크","강원","홍천","강원 홍천군 서면 한치골길 200",37.63900,127.67453],
+ ["웰리힐리CC","강원","횡성","강원 횡성군 둔내면 조항로 360",37.47356,128.23382],
+ ["알펜시아700GC","강원","평창","강원 평창군 대관령면 스포츠파크길 234",37.66205,128.69075],
+ ["용평CC","강원","평창","강원 평창군 대관령면 올림픽로 715",37.64575,128.70212],
+ ["샌드파인GC","강원","강릉","강원 강릉시 저동등길 53",37.79710,128.88184],
+ ["설해원","강원","양양","강원 양양군 손양면 공항로 230",38.05352,128.66224],
+ ["파인밸리CC","강원","삼척","강원 삼척시 근덕면 미근로 1629",37.37637,129.20513],
+ ["킹즈락CC","충북","제천","충북 제천시 내토로7길 136",37.13836,128.17841],
+ ["젠스필드CC","충북","음성","충북 음성군 삼성면 덕호로 382",37.04186,127.51600],
+ ["레인보우힐스CC","충북","음성","충북 음성군 생극면 차생로 168",37.02646,127.64927],
+ ["시그너스CC","충북","충주","충북 충주시 앙성면 중방곡길 57-44",37.17561,127.74176],
+ ["대영베이스CC","충북","충주","충북 충주시 대소원면 성종두담길 113",36.94681,127.83890],
+ ["떼제베CC","충북","청주","충북 청주시 흥덕구 옥산면 동림2길 149",36.66546,127.31896],
+ ["이븐데일CC","충북","청주","충북 청주시 상당구 미원면 대신2길 31",36.68279,127.60365],
+ ["그랜드CC","충북","청주","충북 청주시 청원구 오창읍 꽃화산길 51-20",36.72192,127.38338],
+ ["우정힐스CC","충남·대전","천안","충남 천안시 동남구 목천읍 충절로 1048-68",36.76706,127.22149],
+ ["천안상록CC","충남·대전","천안","충남 천안시 동남구 수신면 수신로 557",36.74107,127.28324],
+ ["아름다운CC","충남·대전","아산","충남 아산시 영인면 영인산로 440",36.84619,126.91865],
+ ["도고CC","충남·대전","아산","충남 아산시 선장면 삼봉산길 188",36.77800,126.89030],
+ ["솔라고CC","충남·대전","태안","충남 태안군 태안읍 기업도시9길 176",36.69721,126.32406],
+ ["골든베이GC","충남·대전","태안","충남 태안군 근흥면 정산포로 217",36.71010,126.17254],
+ ["세종필드GC","충남·대전","세종","세종특별자치시 정안세종로 1569",36.53571,127.25324],
+ ["유성CC","충남·대전","대전","대전 유성구 현충원로 200",36.35460,127.29069],
+ ["군산CC","전북","군산","전북 군산시 옥서면 남군산로 1685-53",35.89445,126.65509],
+ ["익산CC","전북","익산","전북 익산시 무왕로38길 111",35.96175,127.02618],
+ ["무주덕유산CC","전북","무주","전북 무주군 설천면 만선로 185",35.88630,127.72605],
+ ["전주샹그릴라CC","전북","임실","전북 임실군 신덕면 수지로 559-90",35.69527,127.20672],
+ ["태인CC","전북","정읍","전북 정읍시 태인면 정읍북로 1739-90",35.68482,126.96927],
+ ["고창CC","전북","고창","전북 고창군 심원면 애향갯벌로 70",35.51602,126.50225],
+ ["남원상록GC","전북","남원","전북 남원시 대산면 월계길 11",35.41717,127.29711],
+ ["어등산CC","전남·광주","광주","광주 광산구 무진대로 31",35.16541,126.77187],
+ ["화순CC","전남·광주","화순","전남 화순군 도곡면 천태로 1000-151",34.97170,126.90938],
+ ["무안CC","전남·광주","무안","전남 무안군 청계면 서호로 162",34.96719,126.40787],
+ ["무안클린밸리CC","전남·광주","무안","전남 무안군 청계면 태봉리 757",34.94463,126.45815],
+ ["아크로CC","전남·광주","영암","전남 영암군 금정면 안적동길 403",34.87183,126.78532],
+ ["파인비치GC","전남·광주","해남","전남 해남군 화원면 시아로 224",34.69672,126.26240],
+ ["포라이즌CC","전남·광주","순천","전남 순천시 별량면 오실길 333",34.90182,127.44874],
+ ["파인힐스CC","전남·광주","순천","전남 순천시 주암면 송광사길 99",35.03465,127.27220],
+ ["팔공CC","경북·대구","대구","대구 동구 팔공산로237길 186",35.99003,128.72149],
+ ["대구CC","경북·대구","경산","경북 경산시 진량읍 일연로 718-42",35.87148,128.81220],
+ ["골프존카운티 선산","경북·대구","구미","경북 구미시 산동읍 강동로 953-73",36.16177,128.44995],
+ ["구미CC","경북·대구","구미","경북 구미시 장천면 송백로 229",36.16975,128.48684],
+ ["오션힐스포항CC","경북·대구","포항","경북 포항시 북구 송라면 대전길 7",36.24498,129.34991],
+ ["강동디아너스CC","경북·대구","경주","경북 경주시 보불로 391",35.82272,129.29559],
+ ["보문GC","경북·대구","경주","경북 경주시 보문로 182-14",35.86124,129.27321],
+ ["경주신라CC","경북·대구","경주","경북 경주시 보문로 319",35.85051,129.28467],
+ ["마우나오션CC","경북·대구","경주","경북 경주시 양남면 동남로 982",35.68375,129.37235],
+ ["아시아드CC","경남·부산·울산","부산 기장","부산 기장군 일광읍 차양길 26",35.28724,129.24015],
+ ["해운대비치GC","경남·부산·울산","부산 기장","부산 기장군 기장읍 대변로 74",35.22493,129.22032],
+ ["동래베네스트CC","경남·부산·울산","부산 금정","부산 금정구 선동 1052",35.26437,129.09644],
+ ["보라CC","경남·부산·울산","울산","울산 울주군 삼동면 삼동로 404",35.49319,129.13379],
+ ["울산CC","경남·부산·울산","울산","울산 울주군 웅촌면 웅촌로 1",35.44153,129.18711],
+ ["통도파인이스트CC","경남·부산·울산","양산","경남 양산시 하북면 신평남부길 78-130",35.48572,129.10074],
+ ["골프존카운티 이든","경남·부산·울산","양산","경남 양산시 어실로 910",35.42441,128.99130],
+ ["정산CC","경남·부산·울산","김해","경남 김해시 주촌면 서부로1637번길 299-194",35.25524,128.80561],
+ ["가야CC","경남·부산·울산","김해","경남 김해시 인제로 502",35.27397,128.89838],
+ ["진주CC","경남·부산·울산","진주","경남 진주시 진성면 진성로464번길 82",35.17332,128.23315],
+ ["드비치GC","경남·부산·울산","거제","경남 거제시 장목면 거제북로 1573",35.01590,128.67394],
+ ["사우스케이프","경남·부산·울산","남해","경남 남해군 창선면 진동리 1361",34.83648,128.07441],
+ ["아난티남해GC","경남·부산·울산","남해","경남 남해군 남면 남서대로1179번길 40-109",34.77673,127.85183],
+ ["골프존카운티 오라","제주","제주시","제주 제주시 오라남로 130-16",33.44808,126.51331],
+ ["더시에나제주CC","제주","제주시","제주 제주시 516로 2695",33.43008,126.58224],
+ ["블랙스톤제주CC","제주","한림","제주 제주시 한림읍 한창로 925-122",33.33637,126.31092],
+ ["엘리시안제주CC","제주","애월","제주 제주시 애월읍 평화로 1738-116",33.37233,126.38085],
+ ["타미우스CC","제주","애월","제주 제주시 애월읍 화전길 201",33.35162,126.38818],
+ ["핀크스GC","제주","안덕","제주 서귀포시 안덕면 산록남로 863",33.31533,126.38863],
+ ["나인브릿지CC","제주","안덕","제주 서귀포시 안덕면 광평로 34-156",33.34184,126.40542],
+ ["테디밸리","제주","안덕","제주 서귀포시 안덕면 한창로 365",33.29261,126.34853],
+ ["롯데스카이힐제주CC","제주","서귀포","제주 서귀포시 상예로 530",33.28731,126.40526],
+ ["해비치CC제주","제주","남원","제주 서귀포시 남원읍 원님로399번길 319",33.35890,126.72731],
+].forEach(([n,r,a,ad,lat,lon])=>COURSES.push({n,r,a,ad,lat,lon}));
+const PROVS = ["경기","인천","강원","충북","충남·대전","전북","전남·광주","경북·대구","경남·부산·울산","제주"];
+const REGIONS = ["★ 즐겨찾기","전체",...PROVS];
+// 전국 지도에서 도 말풍선을 놓는 자리 (서로 겹치지 않게 조금씩 옮긴 자리)
+const PROV_POS={"인천":[37.95,126.2],"강원":[37.95,128.6],"경기":[37.45,127.4],"충남·대전":[36.95,126.3],"충북":[36.95,128.4],
+  "전북":[36.15,126.5],"경북·대구":[36.45,128.85],"전남·광주":[35.0,126.5],"경남·부산·울산":[35.45,128.7],"제주":[33.65,126.6]};
+
+// ───── 상태 ─────
+let DATA=null, DAY=1, REGION="전체", OPEN=null, LAST=0;
+let FAV=[];
+try{ FAV=JSON.parse(localStorage.getItem("golfFav")||"[]"); }catch(e){ FAV=[]; }
+const saveFav=()=>{ try{ localStorage.setItem("golfFav",JSON.stringify(FAV)); }catch(e){} };
+
+// ───── 도우미 ─────
+const $=id=>document.getElementById(id);
+const r1=v=>(v==null||isNaN(v))?"-":(Math.round(v*10)/10).toFixed(1);
+const r0=v=>(v==null||isNaN(v))?"-":Math.round(v);
+const avg=a=>{a=a.filter(v=>v!=null);return a.length?a.reduce((s,v)=>s+v,0)/a.length:null;};
+const sum=a=>a.filter(v=>v!=null).reduce((s,v)=>s+v,0);
+const mx=a=>{a=a.filter(v=>v!=null);return a.length?Math.max(...a):null;};
+// 0=어제, 1=오늘, 2=내일, 3=모레, 4~8=날짜로 (오늘부터 일주일 뒤까지)
+const NDAYS=8;
+const DAYNAME=new Proxy(["어제","오늘","내일","모레"],{get(t,k){
+  if(k in t) return t[k];
+  const i=Number(k); if(!isNaN(i)&&DATA){ const d=new Date(DATA[0].daily.time[i]+"T00:00:00");
+    return `${d.getMonth()+1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]})`; }
+  return undefined; }});
+
+// ───── 날씨 그림 (직접 그린 그림 — 휴대폰·PC 어디서나 같은 모양) ─────
+const WI_SUN=`<circle cx="16" cy="16" r="6.5" fill="#FDB813"/><g stroke="#FDB813" stroke-width="2.3" stroke-linecap="round">`+
+  [0,45,90,135,180,225,270,315].map(a=>{const r=Math.PI*a/180;return `<line x1="${(16+9.5*Math.cos(r)).toFixed(1)}" y1="${(16+9.5*Math.sin(r)).toFixed(1)}" x2="${(16+12.5*Math.cos(r)).toFixed(1)}" y2="${(16+12.5*Math.sin(r)).toFixed(1)}"/>`;}).join("")+`</g>`;
+const wiCloud=(fill,dy=0,stroke="#8795a1")=>`<path transform="translate(0 ${dy})" d="M9.5 26h14a5.5 5.5 0 0 0 .7-10.95A8 8 0 0 0 8.9 16.2 4.9 4.9 0 0 0 9.5 26z" fill="${fill}" stroke="${stroke}" stroke-width="1.3" stroke-linejoin="round"/>`;
+const WI={
+  sun:WI_SUN,
+  few:`<g transform="translate(-3 -4) scale(.85)">${WI_SUN}</g>`+`<g transform="translate(5 5) scale(.8)">${wiCloud("#fff")}</g>`,
+  part:`<g transform="translate(-4 -5) scale(.8)">${WI_SUN}</g>`+wiCloud("#fff",1),
+  cloud:`<g transform="translate(4 -5) scale(.7)">${wiCloud("#c9d1d8",0,"#8795a1")}</g>`+wiCloud("#e9edf0",1),
+  fog:wiCloud("#e9edf0",-4)+`<g stroke="#8795a1" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="26" x2="26" y2="26"/><line x1="9" y1="30" x2="23" y2="30"/></g>`,
+  drizzle:wiCloud("#dfe5ea",-5)+`<g fill="#2f8fd8"><circle cx="12" cy="26" r="1.5"/><circle cx="17" cy="28" r="1.5"/><circle cx="22" cy="26" r="1.5"/></g>`,
+  rain:wiCloud("#cfd7de",-5)+`<g stroke="#2f8fd8" stroke-width="2.3" stroke-linecap="round"><line x1="12" y1="24" x2="10" y2="29"/><line x1="17" y1="24" x2="15" y2="29"/><line x1="22" y1="24" x2="20" y2="29"/></g>`,
+  shower:`<g transform="translate(-4 -6) scale(.7)">${WI_SUN}</g>`+wiCloud("#dfe5ea",-4)+`<g stroke="#2f8fd8" stroke-width="2.3" stroke-linecap="round"><line x1="13" y1="25" x2="11" y2="30"/><line x1="19" y1="25" x2="17" y2="30"/></g>`,
+  ice:wiCloud("#cfd7de",-5)+`<g stroke="#5aa9e6" stroke-width="2.3" stroke-linecap="round"><line x1="12" y1="24" x2="10" y2="29"/><line x1="22" y1="24" x2="20" y2="29"/></g><rect x="14.5" y="24.5" width="4" height="4" rx="1" fill="#9fd3f5" stroke="#5aa9e6"/>`,
+  snow:wiCloud("#e2e8ed",-5)+`<g fill="#5b9be0"><circle cx="11" cy="26" r="1.8"/><circle cx="17" cy="29" r="1.8"/><circle cx="23" cy="26" r="1.8"/></g>`,
+  thunder:wiCloud("#9aa6b2",-5,"#6b7884")+`<polygon points="17,21 12.5,28 16,28 14,32.5 21,24.5 17.5,24.5 19.5,21" fill="#FDB813" stroke="#d99a00" stroke-width=".8" stroke-linejoin="round"/>`,
+  none:`<circle cx="16" cy="16" r="8" fill="none" stroke="#8795a1" stroke-width="2"/>`,
+};
+function sky(c){
+  const pick=(k,t)=>[`<svg class="wi" viewBox="0 0 32 32" aria-hidden="true">${WI[k]}</svg>`,t,WI[k]];
+  if(c===0) return pick("sun","맑음");
+  if(c===1) return pick("few","대체로 맑음");
+  if(c===2) return pick("part","구름 조금");
+  if(c===3) return pick("cloud","흐림");
+  if(c===45||c===48) return pick("fog","안개");
+  if(c>=51&&c<=57) return pick("drizzle","이슬비");
+  if(c===66||c===67) return pick("ice","어는 비");
+  if(c>=61&&c<=65) return pick("rain","비");
+  if(c>=71&&c<=77) return pick("snow","눈");
+  if(c>=80&&c<=82) return pick("shower","소나기");
+  if(c===85||c===86) return pick("snow","눈 소나기");
+  if(c>=95) return pick("thunder","천둥번개");
+  return pick("none","-");
+}
+const dirName=d=>d==null?"":["북","북동","동","남동","남","남서","서","북서"][Math.round(d/45)%8]+"풍";
+const windWord=ms=>ms==null?"-":ms<4?"약함":ms<7?"조금 있음":ms<10?"강함":"매우 강함";
+function dayLabel(i){
+  const d=new Date(DATA[0].daily.time[i]+"T00:00:00");
+  return `${d.getMonth()+1}/${d.getDate()} ${"일월화수목금토"[d.getDay()]}`;
+}
+
+// ───── 하루 요약 ─────
+function summarize(L,d){
+  const D=L.daily,H=L.hourly;
+  const pick=(day,a,b,k)=>{const o=[];for(let h=a;h<=b;h++)o.push(H[k][day*24+h]);return o;};
+  const feel=avg(pick(d,7,16,"apparent_temperature")), feelPrev=avg(pick(d-1,7,16,"apparent_temperature"));
+  return {
+    code:D.weather_code[d], tmax:D.temperature_2m_max[d], tmin:D.temperature_2m_min[d],
+    amax:D.apparent_temperature_max[d], amin:D.apparent_temperature_min[d],
+    pmax:D.temperature_2m_max[d-1], pmin:D.temperature_2m_min[d-1],
+    feel, feelPrev, morning:avg(pick(d,6,7,"apparent_temperature")),
+    dFeel:(feel!=null&&feelPrev!=null)?feel-feelPrev:null,
+    dMax:D.temperature_2m_max[d]-D.temperature_2m_max[d-1],
+    dMin:D.temperature_2m_min[d]-D.temperature_2m_min[d-1],
+    rain:sum(pick(d,6,18,"precipitation")), prob:mx(pick(d,6,18,"precipitation_probability")),
+    wind:mx(pick(d,6,18,"wind_speed_10m")), gust:D.wind_gusts_10m_max[d], dir:D.wind_direction_10m_dominant[d],
+  };
+}
+const warmWord=f=>(f!=null&&f>=22)?"더워요":"따뜻해요";
+function cmpText(dv,feel,prev){
+  if(dv==null) return {cls:"same",t:`${prev} 자료 없음`};
+  if(Math.abs(dv)<1) return {cls:"same",t:`${prev}와 비슷해요`};
+  return dv<0?{cls:"cold",t:`🥶 ${prev}보다 ${r1(-dv)}° 추워요`}
+             :{cls:"warm",t:`${feel>=22?"🥵":"😊"} ${prev}보다 ${r1(dv)}° ${warmWord(feel)}`};
+}
+const prevName=()=>DAY===1?"어제":"전날";
+
+// ───── 추천 복장 ─────
+const WEAR=[
+  {min:27,lv:"한여름 라운드",em:"🌞",col:"#e0601f",short:"반팔 쿨 기능성 + 쿨토시",
+   top:"반팔 쿨(냉감) 기능성 티, 밝은 색",bottom:"얇고 바람 잘 통하는 바지 (반바지는 골프장 규정 확인)",
+   item:["쿨토시","챙 넓은 모자·바이저","선크림·선글라스","물·이온음료 넉넉히"]},
+  {min:22,lv:"더운 날",em:"☀️",col:"#e8892a",short:"반팔 기능성 + 얇은 바지",
+   top:"반팔 기능성 티",bottom:"얇은 골프 바지",item:["모자","선크림","팔 토시(햇빛 가리기)"]},
+  {min:17,lv:"선선한 날",em:"🍃",col:"#2f9e5f",short:"긴팔 기능성 + 얇은 바람막이",
+   top:"긴팔 기능성 티 (또는 반팔 + 얇은 이너)",bottom:"보통 골프 바지",item:["얇은 바람막이 (아침·저녁용)","모자"]},
+  {min:12,lv:"쌀쌀한 날",em:"🍂",col:"#1f8a7a",short:"긴팔 + 니트 조끼·바람막이",
+   top:"긴팔 티 + 니트 조끼 또는 얇은 바람막이",bottom:"보통 바지 (얇은 기모도 좋아요)",item:["바람막이","얇은 넥워머"]},
+  {min:7,lv:"추운 날",em:"🧣",col:"#2f6fe0",short:"목폴라 + 니트 + 경량 패딩 조끼",
+   top:"기모 이너·목폴라 + 니트 + 경량 패딩 조끼",bottom:"기모 바지",item:["양손 장갑 고려","핫팩 1~2개","귀마개"]},
+  {min:2,lv:"많이 추운 날",em:"🧤",col:"#3c55c9",short:"발열내의 + 경량 패딩 + 기모 바지",
+   top:"발열 내의 + 목폴라 + 소매 있는 경량 패딩",bottom:"기모 바지 (속에 레깅스 겹쳐 입기)",
+   item:["귀마개·넥워머","겨울용 양손 장갑","핫팩 2~3개","보온병에 따뜻한 차"]},
+  {min:-99,lv:"한겨울 라운드",em:"❄️",col:"#4b3fb5",short:"두꺼운 패딩 + 방한 바지 + 핫팩",
+   top:"발열 내의 + 두꺼운 패딩 (스윙 편한 것)",bottom:"방한 바지 + 발열 내의 하의",
+   item:["방한 모자·넥워머","겨울용 양손 장갑","핫팩 여러 개 (주머니·허리)","컬러볼 (눈 올 때)","얼어 있는 그린·카트길 미끄럼 조심"]},
+];
+function wear(s){
+  const base=Math.round(s.feel!=null?s.feel:(s.amax+s.amin)/2);
+  const w=WEAR.find(x=>base>=x.min), tips=[];
+  if(s.prob>=60||s.rain>=1) tips.push(["☔","비 소식: 레인 재킷·바지, 큰 우산, 여분 장갑 2~3켤레, 수건, 방수 골프화"]);
+  else if(s.prob>=30) tips.push(["🌂","비 올 수도 있어요: 우산과 여분 장갑을 챙기세요"]);
+  if(s.wind>=7||s.gust>=12) tips.push(["💨","바람이 강해요: 바람막이 꼭, 모자는 끈 있는 것이나 비니. 맞바람엔 한두 클럽 길게"]);
+  if(s.morning!=null&&s.feel!=null&&s.feel-s.morning>=4)
+    tips.push(["🌅",`이른 티오프(6~8시)는 체감 ${r0(s.morning)}°: 한 겹 더 입고 나가서 낮에 벗으세요`]);
+  if(s.tmax-s.tmin>=10) tips.push(["🌡️",`일교차 ${r0(s.tmax-s.tmin)}°: 얇은 옷을 여러 겹 겹쳐 입으세요`]);
+  return {w,tips,base};
+}
+
+// ───── 위쪽 머리판 ─────
+function drawHero(){
+  const days=[]; for(let i=1;i<=NDAYS;i++) days.push(i);
+  $("days").innerHTML=days.map(i=>
+    `<button class="${i===DAY?"on":""}${i===1?" today":""}" onclick="setDay(${i})">${dayLabel(i).split(" ")[1]}${i===1?"<em>(오늘)</em>":""}<small>${dayLabel(i).split(" ")[0]}</small></button>`).join("");
+  const on=$("days").querySelector(".on"), bx=$("days");
+  if(on) bx.scrollLeft=on.offsetLeft-bx.clientWidth/2+on.offsetWidth/2;
+  // 도별 칸: 도 이름 · 대표 날씨 · 낮 체감 평균 · 어제와 차이
+  const prev=DAY===1?"어제":"전날";
+  const tiles=PROVS.map(r=>{
+    const ss=COURSES.map((_,i)=>i).filter(i=>COURSES[i].r===r).map(i=>summarize(DATA[i],DAY));
+    const cnt={}; ss.forEach(s=>cnt[s.code]=(cnt[s.code]||0)+1);
+    const code=+Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]||b-a)[0];
+    const feel=avg(ss.map(s=>s.feel)), d=avg(ss.map(s=>s.dFeel)), w=WEAR.find(x=>Math.round(feel)>=x.min);
+    const rainN=ss.filter(s=>s.prob>=30||s.rain>=0.5).length;
+    const dc=d==null||Math.abs(d)<1?"f":d<0?"c":"w";
+    const dt=d==null?"-":Math.abs(d)<1?"비슷":(d<0?"▼":"▲")+r0(Math.abs(d))+"°";
+    return `<button class="pt ${REGION===r?"on":""}" style="--c:${w.col}" onclick="pickProv('${r}')">
+      <span class="pn">${r}</span>
+      <span class="pw">${sky(code)[0]}</span>
+      <span class="pf">${r0(feel)}°</span>
+      <span class="pd ${dc}">${dt}</span>
+      ${rainN?`<span class="pr">☔${rainN}</span>`:""}
+    </button>`;
+  }).join("");
+  $("heroSum").innerHTML=`
+    <div class="pcap">${DAYNAME[DAY]} 도별 낮 체감온도 <span>· ${prev}보다 ▲따뜻 ▼추움</span></div>
+    <div class="ptiles">${tiles}</div>
+    ${DAY>=4?`<div class="pillrow"><span class="pill">⚠️ ${DAY-1}일 뒤 예보 — <b>날이 다가오면 바뀔 수 있어요</b></span></div>`:""}`;
+}
+
+// ───── 카드 목록 ─────
+function cardHTML(i,g){
+  const c=COURSES[i], s=summarize(DATA[i],DAY), [ic,tx]=sky(s.code), {w}=wear(s), on=FAV.includes(c.n);
+  const span=(g.hi-g.lo)||1, L=(s.tmin-g.lo)/span*100, W=Math.max(6,(s.tmax-s.tmin)/span*100);
+  const cm=cmpText(s.dFeel,s.feel,prevName());
+  return `<div class="card" onclick="openSheet(${i})">
+    <div class="cbody">
+      <div class="ctop">
+        <button class="star" aria-label="즐겨찾기" onclick="toggleFav(event,${i})">${on?"★":"☆"}</button>
+        <div><div class="cname">${c.n}</div><div class="carea">${c.r} · ${c.a}</div></div>
+        <div class="cicon"><span class="e">${ic}</span>${tx}</div>
+      </div>
+      <div class="trow">
+        <span class="tlo">${r0(s.tmin)}°</span>
+        <span class="track"><i style="left:${L}%;width:${W}%"></i></span>
+        <span class="thi">${r0(s.tmax)}°</span>
+      </div>
+      <div class="feel">체감 ${r0(s.amin)}° ~ ${r0(s.amax)}°</div>
+      <span class="badge ${cm.cls}">${cm.t}</span>
+      <div class="stats">
+        <div class="stat"><span class="k">☔ 강우</span><span class="v">${r1(s.rain)}<small>mm</small></span></div>
+        <div class="stat"><span class="k">💧 비 확률</span><span class="v">${s.prob??"-"}<small>%</small></span></div>
+        <div class="stat"><span class="k">💨 바람</span><span class="v">${r1(s.wind)}<small>m/s</small></span></div>
+      </div>
+    </div>
+    <div class="wearbar" style="background:${w.col}"><span>${w.em}</span><span class="lv">${w.lv}</span><span class="tx">${w.short}</span></div>
+  </div>`;
+}
+// ───── 검색 ─────
+let Q="";
+const ALIAS={"포라이즌CC":"승주CC 승주","골프존카운티 이든":"에덴밸리","더시에나제주CC":"제주CC","골프존카운티 오라":"오라CC 오라",
+  "강동디아너스CC":"블루원 디아너스","떼제베CC":"올데이 청주","소노펠리체CC 비발디파크":"비발디","나인브릿지CC":"클럽나인브릿지 CJ",
+  "드비치GC":"거제","사우스케이프":"사우스케이프오너스클럽","해비치CC제주":"해비치",
+  "클럽72CC":"스카이72 sky72 스카이","서울한양CC":"한양","곤지암GC":"곤지암CC LG","잭니클라우스GC코리아":"잭니 송도",
+  "베어즈베스트청라GC":"베어즈 청라","해슬리나인브릿지":"나인브릿지 해슬리","88CC":"팔팔 88","안성베네스트GC":"베네스트","가평베네스트GC":"베네스트"};
+const norm=t=>String(t).toLowerCase().replace(/\s+/g,"");
+function matchQ(i){
+  if(!Q) return true;
+  const c=COURSES[i];
+  return norm(c.n+c.a+c.ad+c.r+(ALIAS[c.n]||"")).includes(norm(Q));
+}
+function setQuery(v){
+  Q=v.trim(); $("qx").classList.toggle("on",!!Q);
+  if(!DATA) return;
+  drawList(); drawMap(true);
+}
+
+function drawList(){
+  $("regions").innerHTML=REGIONS.map(r=>`<button class="chip ${r===REGION&&!Q?"on":""}" onclick="clearQ();setRegion('${r}')">${r}</button>`).join("");
+  let idx=COURSES.map((_,i)=>i);
+  if(Q) idx=idx.filter(matchQ);
+  else if(REGION==="★ 즐겨찾기") idx=idx.filter(i=>FAV.includes(COURSES[i].n));
+  else if(REGION!=="전체") idx=idx.filter(i=>COURSES[i].r===REGION);
+  idx.sort((a,b)=>(FAV.includes(COURSES[b].n)?1:0)-(FAV.includes(COURSES[a].n)?1:0));
+  const all=DATA.map(L=>summarize(L,DAY));
+  const g={lo:Math.min(...all.map(s=>s.tmin)),hi:Math.max(...all.map(s=>s.tmax))};
+  if(Q){
+    $("listTitle").textContent=`🔍 '${Q}' 검색 · ${idx.length}곳`;
+    $("listHint").textContent="카드를 누르면 시간별 날씨";
+    $("list").className="grid";
+    $("list").innerHTML=idx.length?idx.map(i=>cardHTML(i,g)).join("")
+      :`<div class="empty">'${Q.replace(/[<>&"']/g,"")}'에 맞는 골프장이 없어요.<br>지금은 전국 ${COURSES.length}곳이 들어 있어요.</div>`;
+    return;
+  }
+  $("listTitle").textContent=`${REGION==="전체"?"전국 골프장":REGION} · ${idx.length}곳`;
+  $("listHint").textContent=REGION==="전체"?"도를 누르면 골프장별로":REGION==="★ 즐겨찾기"?"카드를 누르면 시간별 날씨":"줄을 누르면 자세히";
+  if(REGION==="전체"){ $("list").className=""; $("list").innerHTML=provinceHTML(); return; }
+  if(REGION!=="★ 즐겨찾기"){ $("list").className=""; $("list").innerHTML=compactHTML(idx); return; }
+  $("list").className="grid";
+  $("list").innerHTML=idx.length?idx.map(i=>cardHTML(i,g)).join("")
+    :`<div class="empty">☆를 눌러 자주 가는 골프장을 즐겨찾기에 넣어 보세요.</div>`;
+}
+function clearQ(){ if(Q){ Q=""; $("q").value=""; $("qx").classList.remove("on"); } }
+
+// ───── '전체' = 한눈에 보는 간략표 ─────
+function compactRow(i){
+  const c=COURSES[i], s=summarize(DATA[i],DAY), [ic]=sky(s.code), {w}=wear(s);
+  const SHORT={"해슬리나인브릿지":"해슬리","베어즈베스트청라GC":"베어즈청라","잭니클라우스GC코리아":"잭니클라우스","안성베네스트GC":"안성베네","가평베네스트GC":"가평베네",
+    "소노펠리체CC 비발디파크":"소노펠리체","골프존카운티 선산":"GC카운티선산","골프존카운티 이든":"GC카운티이든","골프존카운티 오라":"GC카운티오라",
+    "롯데스카이힐제주CC":"스카이힐제주","전주샹그릴라CC":"샹그릴라","통도파인이스트CC":"통도파인","무안클린밸리CC":"클린밸리"};
+  let short=SHORT[c.n]||c.n.replace(/(GC코리아|CC|GC)$/,""); if(/^\d+$/.test(short)) short=c.n;
+  const d=s.dFeel, dc=d==null||Math.abs(d)<1?"flat":d<0?"down":"up";
+  const dt=d==null?"-":Math.abs(d)<1?"비슷":(d<0?"▼":"▲")+r0(Math.abs(d));
+  const rainOn=s.prob>=30||s.rain>=0.5, windOn=s.wind>=7||s.gust>=12;
+  return `<div class="crow" style="--c:${w.col}" onclick="openSheet(${i})">
+    <span class="cn">${FAV.includes(c.n)?'<b class="fv">★</b>':""}${short}</span>
+    <span class="ci">${ic}</span>
+    <span class="ct"><b class="lo">${r0(s.tmin)}</b><i>/</i><b class="hi">${r0(s.tmax)}</b></span>
+    <span class="cr ${rainOn?"on":""}">${s.prob??0}%</span>
+    <span class="cw ${windOn?"on":""}">${r0(s.wind)}</span>
+    <span class="cd ${dc}">${dt}</span>
+  </div>`;
+}
+const cfoot=()=>`<div class="cfoot">기온 °C · 비 = 6~18시 최고 확률 · 바람 m/s(최대) · ${DAY===1?"어제":"전날"} = 낮 체감온도 차이(▲따뜻 ▼추움) · 왼쪽 색 = 복장 단계</div>`;
+const chead=first=>`<div class="chead"><span>${first}</span><span></span><span>최저/최고</span><span>비</span><span>바람</span><span>${DAY===1?"어제":"전날"}</span></div>`;
+// 도 하나 = 골프장별 간략표
+function compactHTML(ids){
+  return `<div class="ctable">${chead("골프장")}${ids.map(compactRow).join("")}${cfoot()}</div>`;
+}
+// 전체 = 도별 요약 (한 도에 한 줄)
+function provinceHTML(){
+  let h=`<div class="ctable">${chead("지역")}`;
+  const fav=COURSES.map((_,i)=>i).filter(i=>FAV.includes(COURSES[i].n));
+  if(fav.length) h+=`<div class="cgroup" onclick="setRegion('★ 즐겨찾기')">★ 즐겨찾기 <small>${fav.length}곳 ›</small></div>`+fav.map(compactRow).join("")+`<div class="cgroup">도별 요약</div>`;
+  PROVS.forEach(r=>{
+    const ids=COURSES.map((_,i)=>i).filter(i=>COURSES[i].r===r);
+    if(!ids.length) return;
+    const ss=ids.map(i=>summarize(DATA[i],DAY));
+    const cnt={}; ss.forEach(s=>cnt[s.code]=(cnt[s.code]||0)+1);
+    const code=+Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]||b-a)[0];
+    const feel=avg(ss.map(s=>s.feel)), d=avg(ss.map(s=>s.dFeel));
+    const w=WEAR.find(x=>Math.round(feel)>=x.min);
+    const prob=mx(ss.map(s=>s.prob)), wind=mx(ss.map(s=>s.wind));
+    const rainN=ss.filter(s=>s.prob>=30||s.rain>=0.5).length, windN=ss.filter(s=>s.wind>=7||s.gust>=12).length;
+    const dc=d==null||Math.abs(d)<1?"flat":d<0?"down":"up";
+    const dt=d==null?"-":Math.abs(d)<1?"비슷":(d<0?"▼":"▲")+r0(Math.abs(d));
+    h+=`<div class="crow prow" style="--c:${w.col}" onclick="setRegion('${r}')">
+      <span class="cn">${r}<small>${ids.length}곳 ›</small></span>
+      <span class="ci">${sky(code)[0]}</span>
+      <span class="ct"><b class="lo">${r0(Math.min(...ss.map(s=>s.tmin)))}</b><i>/</i><b class="hi">${r0(Math.max(...ss.map(s=>s.tmax)))}</b></span>
+      <span class="cr ${rainN?"on":""}" title="비 소식 ${rainN}곳">${prob??0}%</span>
+      <span class="cw ${windN?"on":""}" title="강풍 ${windN}곳">${r0(wind)}</span>
+      <span class="cd ${dc}">${dt}</span>
+    </div>`;
+  });
+  return h+`<div class="cfoot">도마다 골프장 중 가장 낮은 기온/가장 높은 기온, 비 확률·바람은 가장 높은 값, 날씨 그림은 가장 많은 날씨 · ${DAY===1?"어제":"전날"} = 낮 체감온도 평균 차이 · 왼쪽 색 = 복장 단계</div></div>`;
+}
+function drawAll(){ drawHero(); drawList(); drawMap(); if(OPEN!=null) openSheet(OPEN,true); }
+function setDay(i){DAY=i;drawAll();}
+function setRegion(r){REGION=r;drawHero();drawList();drawMap(true);}
+function pickProv(r){ clearQ(); setRegion(REGION===r?"전체":r);
+  const t=$("viewtg"); window.scrollTo({top:t.getBoundingClientRect().top+scrollY-8,behavior:"smooth"}); }
+function toggleFav(e,i){ e.stopPropagation(); const k=COURSES[i].n;
+  FAV=FAV.includes(k)?FAV.filter(x=>x!==k):[...FAV,k]; saveFav(); drawList(); drawMap(); }
+
+// ───── 지도 ─────
+let VIEW="list", MAP=null, LAYER=null;
+try{ VIEW=localStorage.getItem("golfView")||"list"; }catch(e){}
+function visibleIdx(){
+  let idx=COURSES.map((_,i)=>i);
+  if(Q) return idx.filter(matchQ);
+  if(REGION==="★ 즐겨찾기") idx=idx.filter(i=>FAV.includes(COURSES[i].n));
+  else if(REGION!=="전체") idx=idx.filter(i=>COURSES[i].r===REGION);
+  return idx;
+}
+function setView(v){
+  VIEW=v; try{ localStorage.setItem("golfView",v); }catch(e){}
+  [...$("viewtg").children].forEach((b,k)=>b.classList.toggle("on",(k===0)===(v==="list")));
+  $("listView").style.display=v==="list"?"":"none";
+  $("mapView").style.display=v==="map"?"":"none";
+  if(v==="map"){ if(MAP) MAP.invalidateSize({pan:false}); drawMap(true); }
+}
+function drawMap(fit){
+  if(!DATA||VIEW!=="map"||$("mapView").style.display==="none") return;
+  if(typeof L==="undefined"){ $("map").innerHTML='<div class="err" style="margin:16px">지도 프로그램을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.</div>'; return; }
+  if(!MAP){
+    MAP=L.map("map",{zoomControl:true,attributionControl:true,zoomSnap:0.25}).setView([36.3,127.8],7);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
+      maxZoom:17, className:"osm",
+      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(MAP);
+    LAYER=L.layerGroup().addTo(MAP);
+    fit=true;
+  }
+  const idx=visibleIdx();
+  // 즐겨찾기 먼저 자리 잡기
+  idx.sort((a,b)=>(FAV.includes(COURSES[b].n)?1:0)-(FAV.includes(COURSES[a].n)?1:0));
+  if(fit&&REGION==="전체"&&!Q) MAP.fitBounds(Object.values(PROV_POS),{paddingTopLeft:[78,22],paddingBottomRight:[78,22],animate:false});
+  else if(fit&&idx.length) MAP.fitBounds(idx.map(i=>[COURSES[i].lat,COURSES[i].lon]),{padding:[30,30],maxZoom:12,animate:false});
+  LAYER.clearLayers();
+  // 전국을 넓게 볼 때는 도별 말풍선만
+  if(REGION==="전체"&&!Q&&MAP.getZoom()<=7.5){
+    PROVS.forEach(r=>{
+      const ids=COURSES.map((_,i)=>i).filter(i=>COURSES[i].r===r);
+      const ss=ids.map(i=>summarize(DATA[i],DAY));
+      const cnt={}; ss.forEach(s=>cnt[s.code]=(cnt[s.code]||0)+1);
+      const code=+Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]||b-a)[0];
+      const feel=avg(ss.map(s=>s.feel)), w=WEAR.find(x=>Math.round(feel)>=x.min);
+      const rainN=ss.filter(s=>s.prob>=30||s.rain>=0.5).length, windN=ss.filter(s=>s.wind>=7||s.gust>=12).length;
+      const html=`<div class="pmk" style="--c:${w.col}"><b>${r}</b>${sky(code)[0]}<span class="lo">${r0(Math.min(...ss.map(s=>s.tmin)))}°</span>/<span class="hi">${r0(Math.max(...ss.map(s=>s.tmax)))}°</span>${rainN?`<span class="w">☔${rainN}</span>`:""}${windN?`<span class="w">💨${windN}</span>`:""}</div>`;
+      const m=L.marker(PROV_POS[r],{icon:L.divIcon({className:"mkwrap",html,iconSize:[170,30],iconAnchor:[85,15]}),title:r+" 골프장 "+ids.length+"곳"});
+      m.on("click",()=>setRegion(r));
+      m.addTo(LAYER);
+    });
+    $("mapHint").textContent="도 말풍선을 누르면 그 도의 골프장이 펼쳐져요 (☔·💨 숫자 = 비·강풍 골프장 수)";
+    return;
+  }
+  $("mapHint").textContent="작은 점 = 가까이 붙어 있는 골프장 → 손가락으로 벌려 확대하면 날씨가 펼쳐져요 · 누르면 자세히 보기";
+  const placed=[], hit=(a,b)=>a[0]<b[2]&&a[2]>b[0]&&a[1]<b[3]&&a[3]>b[1];
+  idx.forEach(i=>{
+    const c=COURSES[i], s=summarize(DATA[i],DAY), [ic]=sky(s.code), {w}=wear(s);
+    const isRain=(s.prob>=30||s.rain>=0.5), isWind=(s.wind>=7||s.gust>=12);
+    const rain=isRain?`<span class="w">☔${s.prob??0}%</span>`:"";
+    const wind=isWind?`<span class="w">💨</span>`:"";
+    let short=c.n.replace(/(GC코리아|CC|GC)$/,""); if(/^\d+$/.test(short)) short=c.n;
+    const p=MAP.latLngToContainerPoint([c.lat,c.lon]);
+    const half=(78+(isRain?38:0)+(isWind?16:0))/2;
+    const box=[p.x-half,p.y-36,p.x+half,p.y+24];
+    let icon;
+    if(placed.some(b=>hit(b,box))){
+      icon=L.divIcon({className:"mkwrap",html:`<div class="dot" style="--c:${w.col}"></div>`,iconSize:[16,16],iconAnchor:[8,8]});
+    }else{
+      placed.push(box);
+      const html=`<div class="mk" style="--c:${w.col}">
+        <div class="bub"><span class="e">${ic}</span><span class="lo">${r0(s.tmin)}°</span>/<span class="hi">${r0(s.tmax)}°</span>${rain}${wind}</div>
+        <div class="tail"></div><div class="nm">${FAV.includes(c.n)?'<span class="fv">★</span> ':""}${short}</div></div>`;
+      icon=L.divIcon({className:"mkwrap",html,iconSize:[150,58],iconAnchor:[75,40]});
+    }
+    const m=L.marker([c.lat,c.lon],{icon,title:c.n,riseOnHover:true,zIndexOffset:FAV.includes(c.n)?1000:0});
+    m.on("click",()=>openSheet(i));
+    m.addTo(LAYER);
+  });
+  if(!MAP._golfZoom){ MAP._golfZoom=true; MAP.on("zoomend",()=>drawMap()); }
+}
+
+// ───── 시간별 그래프 (6~18시) ─────
+function hourChart(L){
+  const H=L.hourly, hs=[]; for(let h=6;h<=18;h++) hs.push(h);
+  const j=h=>DAY*24+h;
+  const T=hs.map(h=>H.temperature_2m[j(h)]), A=hs.map(h=>H.apparent_temperature[j(h)]);
+  const R=hs.map(h=>H.precipitation[j(h)]||0), P=hs.map(h=>H.precipitation_probability[j(h)]);
+  const Wd=hs.map(h=>H.wind_speed_10m[j(h)]);
+  const step=52, W=step*hs.length, top=46, ch=90, lo=Math.min(...T,...A)-1, hi=Math.max(...T,...A)+1;
+  const y=v=>top+(hi-v)/(hi-lo)*ch, x=i=>i*step+step/2;
+  const line=arr=>arr.map((v,i)=>`${x(i)},${y(v)}`).join(" ");
+  const rmax=Math.max(2,...R);
+  let s=`<svg width="${W}" height="250" viewBox="0 0 ${W} 250" style="min-width:${W}px" font-family="inherit">
+    <polyline points="${line(A)}" fill="none" stroke="var(--cold)" stroke-width="2" stroke-dasharray="4 4" opacity=".8"/>
+    <polyline points="${line(T)}" fill="none" stroke="var(--warm)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  hs.forEach((h,i)=>{
+    const e=sky(H.weather_code[j(h)])[2];
+    s+=`<svg x="${x(i)-13}" y="2" width="26" height="26" viewBox="0 0 32 32">${e}</svg>
+      <circle cx="${x(i)}" cy="${y(T[i])}" r="3.5" fill="var(--warm)"/>
+      <text x="${x(i)}" y="${y(T[i])-9}" text-anchor="middle" font-size="13" font-weight="800" fill="var(--ink)">${r0(T[i])}°</text>
+      <rect x="${x(i)-9}" y="${200-R[i]/rmax*40}" width="18" height="${R[i]/rmax*40}" rx="3" fill="var(--rain)"/>
+      <text x="${x(i)}" y="214" text-anchor="middle" font-size="11" fill="var(--rain)">${P[i]??"-"}%</text>
+      <text x="${x(i)}" y="228" text-anchor="middle" font-size="11" fill="var(--sub)">💨${r0(Wd[i])}</text>
+      <text x="${x(i)}" y="245" text-anchor="middle" font-size="12" font-weight="700" fill="var(--sub)">${h}시</text>`;
+  });
+  return s+`</svg>`;
+}
+
+// ───── 자세히 보기 ─────
+function openSheet(i,keep){
+  OPEN=i;
+  const c=COURSES[i], L=DATA[i], s=summarize(L,DAY), [ic,tx]=sky(s.code), {w,tips,base}=wear(s);
+  const prev=prevName(), cm=cmpText(s.dFeel,s.feel,prev);
+  const vals=[s.tmin,s.pmin,s.tmax,s.pmax,s.feel,s.feelPrev].filter(v=>v!=null);
+  const lo=Math.min(0,...vals)-2, hi=Math.max(...vals)+2;
+  const pct=v=>((v-lo)/(hi-lo)*100).toFixed(1);
+  const row=(k,t,p,d)=>`<div class="cmprow"><span>${k}</span>
+    <span class="bars"><span class="b y"><i style="width:${pct(p)}%"></i></span><span class="b t"><i style="width:${pct(t)}%"></i></span></span>
+    <span class="d ${d>=1?"up":d<=-1?"down":"flat"}">${d>0?"+":""}${r1(d)}°</span></div>`;
+  $("sheet").innerHTML=`
+    <div class="shead">
+      <div class="grab"></div>
+      <button class="close" onclick="closeSheet()" aria-label="닫기">✕</button>
+      <h2>${c.n}</h2>
+      <div class="addr">📍 ${c.ad}<a href="https://map.kakao.com/link/search/${encodeURIComponent(c.n)}" target="_blank" rel="noopener">지도 ›</a></div>
+      <div class="now"><span class="e">${ic}</span>
+        <div><div class="t">${r0(s.tmin)}° / ${r0(s.tmax)}°</div>
+        <div class="s">${DAY<=3?DAYNAME[DAY]+" "+dayLabel(DAY):DAYNAME[DAY]} ·${tx} · 체감 ${r0(s.amin)}° ~ ${r0(s.amax)}°</div></div></div>
+      <span class="badge ${cm.cls}" style="margin-top:12px">${cm.t}</span>
+    </div>
+    <div class="sbody">
+      <div class="box"><h3>${DAYNAME[DAY]} 라운드 날씨 <small>6~18시</small></h3>
+        <div class="kv">
+          <div><span class="k">☔ 강우량</span><span class="v">${r1(s.rain)} <small>mm</small></span></div>
+          <div><span class="k">💧 비 올 확률 (최고)</span><span class="v">${s.prob??"-"} <small>%</small></span></div>
+          <div><span class="k">💨 바람 (최대)</span><span class="v">${r1(s.wind)} <small>m/s · ${windWord(s.wind)}</small></span></div>
+          <div><span class="k">🌀 돌풍 · 방향</span><span class="v">${r0(s.gust)} <small>m/s · ${dirName(s.dir)}</small></span></div>
+        </div>
+      </div>
+
+      <div class="box"><h3>👕 추천 복장 <small>낮 체감 ${base}° 기준</small></h3>
+        <div class="wearhead" style="background:${w.col}"><span class="em">${w.em}</span>
+          <div><b>${w.lv}</b><span>${w.short}</span></div></div>
+        <ul class="wl">
+          <li><span class="i">👕</span><div><span class="lab">위</span>${w.top}</div></li>
+          <li><span class="i">👖</span><div><span class="lab">아래</span>${w.bottom}</div></li>
+          <li><span class="i">🎒</span><div><span class="lab">챙길 것</span>${w.item.join(", ")}</div></li>
+        </ul>
+        ${tips.map(t=>`<div class="tip"><span>${t[0]}</span><span>${t[1]}</span></div>`).join("")}
+      </div>
+
+      <div class="box"><h3>📊 ${DAY===1?"어제와":"전날과"} 비교</h3>
+        <div class="legend"><span><i style="background:#b9c5bd"></i>${prev}</span><span><i style="background:var(--g3)"></i>${DAYNAME[DAY]}</span></div>
+        ${row(`최저 ${r0(s.tmin)}°`,s.tmin,s.pmin,s.dMin)}
+        ${row(`최고 ${r0(s.tmax)}°`,s.tmax,s.pmax,s.dMax)}
+        ${row(`낮 체감 ${r0(s.feel)}°`,s.feel,s.feelPrev,s.dFeel)}
+      </div>
+
+      <div class="box"><h3>⏰ 시간별 날씨 <small>— 실선 기온 · 점선 체감 · 파란 막대 비</small></h3>
+        <div class="hours">${hourChart(L)}</div>
+      </div>
+    </div>`;
+  if(!keep){ $("sheet").scrollTop=0; }
+  $("sheet").classList.add("on"); $("dim").classList.add("on");
+}
+function closeSheet(){ OPEN=null; $("sheet").classList.remove("on"); $("dim").classList.remove("on"); }
+$("dim").onclick=closeSheet;
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeSheet(); });
+
+// ───── 날씨 불러오기 (열 때 · 새로고침 · 1시간마다 · 다시 볼 때 30분 지났으면) ─────
+async function load(){
+  $("upd").textContent="불러오는 중…";
+  const url="https://api.open-meteo.com/v1/forecast"
+    +"?latitude="+COURSES.map(c=>c.lat).join(",")+"&longitude="+COURSES.map(c=>c.lon).join(",")
+    +"&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,wind_gusts_10m_max,wind_direction_10m_dominant"
+    +"&hourly=temperature_2m,apparent_temperature,precipitation,precipitation_probability,wind_speed_10m,weather_code"
+    +"&timezone=Asia%2FSeoul&wind_speed_unit=ms&past_days=1&forecast_days=8";
+  try{
+    const res=await fetch(url,{cache:"no-store"});
+    if(!res.ok) throw new Error("서버 응답 "+res.status);
+    const j=await res.json();
+    DATA=Array.isArray(j)?j:[j]; LAST=Date.now();
+    const n=new Date();
+    $("upd").textContent=`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")} 업데이트 · 1시간마다 자동`;
+    drawAll();
+  }catch(e){
+    $("upd").textContent="불러오기 실패 — 새로고침을 눌러 주세요";
+    if(!DATA) $("list").innerHTML=`<div class="err">날씨를 불러오지 못했어요 (${e.message}).<br>인터넷 연결을 확인하고 ↻ 새로고침을 눌러 주세요.</div>`;
+  }
+}
+load().then(()=>{ if(VIEW==="map") setView("map"); });
+setInterval(load,60*60*1000);
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden && Date.now()-LAST>30*60*1000) load(); });
+</script>
+</body>
+</html>

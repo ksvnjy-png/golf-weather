@@ -1,6 +1,6 @@
 {
   "name": "전국 골프장 날씨",
-  "short_name": "골프날씨",
+  "short_name": "골프장 날씨",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

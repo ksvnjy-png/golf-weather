@@ -1299,9 +1299,9 @@ function drawMap(fit){
     m.on("click",()=>openSheet(i));
     m.addTo(LAYER);
   });
-  // 지도에 보이는데 아직 날씨가 없는 골프장은 받아 오기 (한 번에 60곳까지)
+  // 지도에 보이는데 날씨가 없거나 1시간 지난 골프장은 받아 오기 (한 번에 60곳까지)
   const bd=MAP.getBounds();
-  const miss=idx.filter(i=>!has(i)&&bd.contains([COURSES[i].lat,COURSES[i].lon])).slice(0,60);
+  const miss=idx.filter(i=>!fresh(i)&&bd.contains([COURSES[i].lat,COURSES[i].lon])).slice(0,60);
   if(miss.length) ensure(miss);
   if(!MAP._golfZoom){ MAP._golfZoom=true; MAP.on("moveend",()=>drawMap()); }
 }
@@ -1411,57 +1411,125 @@ function closeSheet(){ OPEN=null; $("sheet").classList.remove("on"); $("dim").cl
 $("dim").onclick=closeSheet;
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeSheet(); });
 
-// ───── 날씨 받아 오기 (필요한 골프장만 · 한 번 받으면 1시간 다시 씀) ─────
-const KEEP=60*60*1000;
+// ───── 날씨 받아 오기 ─────
+// · 변수 9개만 요청 (10개 이하라야 골프장 1곳 = 호출 1회로 계산됨)
+//   일별 최고·최저 기온/체감은 시간별 값에서 직접 계산 (서버도 같은 방식으로 계산함)
+// · 앱을 열 때마다 항상 새로 받음. 저장본은 서버 연결이 안 될 때만 "○시 기준"으로 보여 줌
+// · 10초 넘게 응답이 없으면 끊고 이유를 보여 줌
+const KEEP=60*60*1000, TIMEOUT=10*1000;
+const CKEY="golfWxCache", CMAX=150;
+const pad2=n=>String(n).padStart(2,"0");
+const hhmm=t=>{const d=new Date(t);return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;};
+const todayStr=()=>{const d=new Date();return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;};
+const STALE={};                                   // 저장본을 보여 주는 중인 골프장 → 저장 시각
+let CACHE={};                                     // 골프장 이름 → {t:받은 시각, d:데이터}
+try{ CACHE=JSON.parse(localStorage.getItem(CKEY)||"{}")||{}; }catch(e){ CACHE={}; }
+
+// 시간별 값으로 일별 최고·최저 채우기
+function addDaily(L){
+  const H=L.hourly, D=L.daily, n=D.time.length;
+  const by=(k,f)=>Array.from({length:n},(_,d)=>{const a=H[k].slice(d*24,d*24+24).filter(v=>v!=null);return a.length?f(...a):null;});
+  D.temperature_2m_max=by("temperature_2m",Math.max);
+  D.temperature_2m_min=by("temperature_2m",Math.min);
+  D.apparent_temperature_max=by("apparent_temperature",Math.max);
+  D.apparent_temperature_min=by("apparent_temperature",Math.min);
+  return L;
+}
+// 저장할 때는 꼭 필요한 값만 (휴대폰 저장 공간 아끼기)
+function slim(L){
+  const H=L.hourly, D=L.daily, o={daily:{time:D.time,weather_code:D.weather_code,wind_gusts_10m_max:D.wind_gusts_10m_max,wind_direction_10m_dominant:D.wind_direction_10m_dominant},hourly:{}};
+  ["temperature_2m","apparent_temperature","precipitation","precipitation_probability","wind_speed_10m","weather_code"].forEach(k=>o.hourly[k]=H[k]);
+  return o;
+}
+function saveCache(){
+  const keys=Object.keys(CACHE).sort((a,b)=>CACHE[b].t-CACHE[a].t);
+  keys.slice(CMAX).forEach(k=>delete CACHE[k]);
+  for(let tries=0;tries<5;tries++){
+    try{ localStorage.setItem(CKEY,JSON.stringify(CACHE)); return; }
+    catch(e){ const ks=Object.keys(CACHE).sort((a,b)=>CACHE[b].t-CACHE[a].t); if(ks.length<2) return; ks.slice(Math.floor(ks.length/2)).forEach(k=>delete CACHE[k]); }
+  }
+}
+// 서버가 안 될 때: 오늘 날짜 기준 저장본이 있으면 꺼내 쓰기
+function useCache(i){
+  const c=CACHE[COURSES[i].n];
+  if(!c||!c.d||!c.d.daily||c.d.daily.time[1]!==todayStr()) return false;
+  DATA[i]=addDaily(JSON.parse(JSON.stringify(c.d))); STALE[i]=c.t;
+  if(!TIMES) TIMES=c.d.daily.time;
+  return true;
+}
 async function fetchW(ids){
   const url="https://api.open-meteo.com/v1/forecast"
     +"?latitude="+ids.map(i=>COURSES[i].lat).join(",")+"&longitude="+ids.map(i=>COURSES[i].lon).join(",")
-    +"&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,wind_gusts_10m_max,wind_direction_10m_dominant"
+    +"&daily=weather_code,wind_gusts_10m_max,wind_direction_10m_dominant"
     +"&hourly=temperature_2m,apparent_temperature,precipitation,precipitation_probability,wind_speed_10m,weather_code"
     +"&timezone=Asia%2FSeoul&wind_speed_unit=ms&past_days=1&forecast_days=8";
-  const res=await fetch(url,{cache:"no-store"});
-  if(!res.ok) throw new Error("서버 응답 "+res.status);
+  const ctl=new AbortController(), tm=setTimeout(()=>ctl.abort(),TIMEOUT);
+  let res;
+  try{ res=await fetch(url,{cache:"no-store",signal:ctl.signal}); }
+  catch(e){ throw new Error(e.name==="AbortError"?"날씨 서버가 응답하지 않아요 (10초 초과)":"인터넷 연결을 확인해 주세요"); }
+  finally{ clearTimeout(tm); }
+  if(!res.ok){
+    let why=""; try{ const j=await res.json(); why=j.reason||""; }catch(e){}
+    if(res.status===429) throw new Error("호출 한도 초과 · 1분쯤 뒤 다시 눌러 주세요");
+    throw new Error(`날씨 서버 오류 ${res.status}${why?" · "+why:""}`);
+  }
   const j=await res.json();
-  return Array.isArray(j)?j:[j];
+  return (Array.isArray(j)?j:[j]).map(addDaily);
 }
+const fresh=i=>GOT[i]&&Date.now()-GOT[i]<=KEEP;
 // force=true: 새로고침처럼 1시간이 안 됐어도 다시 받음
 async function ensure(ids,force){
   const now=Date.now();
   const need=[...new Set(ids)].filter(i=>!BUSY.has(i)&&(force||
-    ((!GOT[i]||now-GOT[i]>KEEP)&&!(FAILAT[i]&&now-FAILAT[i]<60*1000))));
+    (!fresh(i)&&!(FAILAT[i]&&now-FAILAT[i]<60*1000))));
   if(!need.length) return;
   need.forEach(i=>BUSY.add(i));
   if(OPEN!=null&&need.includes(OPEN)&&!has(OPEN)){ delete FAILAT[OPEN]; openSheet(OPEN,true); }
   if(force||!Object.keys(GOT).length) $("upd").textContent="불러오는 중…";
-  let ok=0, bad=0;
+  let ok=0, err=null, saved=false;
   for(let k=0;k<need.length;k+=50){
     const part=need.slice(k,k+50);
     if(k) await new Promise(r=>setTimeout(r,600));   // 서버가 바쁘지 않게 조금 쉬었다가
     try{
       const arr=await fetchW(part);
-      part.forEach((i,t)=>{ if(arr[t]){ DATA[i]=arr[t]; GOT[i]=Date.now(); delete FAILAT[i]; } });
+      part.forEach((i,t)=>{ if(arr[t]){ DATA[i]=arr[t]; GOT[i]=Date.now(); delete FAILAT[i]; delete STALE[i];
+        CACHE[COURSES[i].n]={t:GOT[i],d:slim(arr[t])}; saved=true; } });
       if(arr[0]&&arr[0].daily) TIMES=arr[0].daily.time;
       ok++;
-    }catch(e){ bad++; part.forEach(i=>FAILAT[i]=Date.now()); }
+    }catch(e){ err=e; part.forEach(i=>{ FAILAT[i]=Date.now(); if(!fresh(i)) useCache(i); }); }
     finally{ part.forEach(i=>BUSY.delete(i)); }
     if(k+50<need.length) drawAll();               // 먼저 받은 것부터 보여 주기
   }
-  if(ok){ LAST=Date.now(); const n=new Date();
-    $("upd").textContent=`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")} 업데이트 · 1시간마다 자동`; }
-  else if(!Object.keys(GOT).length) $("upd").textContent="불러오기 실패 — 새로고침을 눌러 주세요";
-  if(bad) toast("날씨 서버가 바빠요 · 잠시 뒤 다시 눌러 주세요");
+  if(saved) saveCache();
+  if(ok) LAST=Date.now();
+  showStatus(err);
+  if(err) toast(err.message);
   drawAll();
 }
-// 처음·새로고침·1시간마다: 대표 골프장 + ★즐겨찾기 + 이미 본 골프장
+// 상단 상태 글씨: 저장본을 보여 주는 중이면 크게 경고
+function showStatus(err){
+  const st=Object.values(STALE);
+  const u=$("upd");
+  if(st.length){
+    u.innerHTML=`<b style="color:#ffd166">⚠️ 서버 연결 안 됨 · ${hhmm(Math.min(...st))} 기준 날씨</b>`;
+  }else if(LAST){
+    u.textContent=`${hhmm(LAST)} 업데이트 · 1시간마다 자동`;
+  }else if(err){
+    u.textContent=`불러오기 실패 — ${err.message}`;
+  }
+}
+// 처음·새로고침·1시간마다: 대표 골프장 + ★즐겨찾기 + 지금 보고 있는 지역·골프장만
 function load(force){
-  const ids=[...REPS,...favIds(),...Object.keys(GOT).map(Number)];
+  const cur=Q?[]:PROVS.includes(REGION)?idsOf(REGION):[];
+  const ids=[...REPS,...favIds(),...cur,...(OPEN!=null?[OPEN]:[])];
   return ensure(ids,force);
 }
 drawAll();
 if(VIEW==="map") setView("map");
 load(false);
 setInterval(()=>load(true),KEEP);
-document.addEventListener("visibilitychange",()=>{ if(!document.hidden && Date.now()-LAST>30*60*1000) load(true); });
+// 다른 앱 보다가 돌아왔을 때 10분 넘게 지났으면 새로 받기
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden && Date.now()-LAST>10*60*1000) load(true); });
 </script>
 </body>
 </html>

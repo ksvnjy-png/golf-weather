@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b3d26">
 <title>경기 골프장 날씨</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -50,8 +50,13 @@ button{font-family:inherit}
     repeating-linear-gradient(115deg, rgba(255,255,255,.035) 0 34px, rgba(255,255,255,0) 34px 68px),
     linear-gradient(160deg,var(--g2) 0%,var(--g1) 70%);
   padding:22px 16px 26px;border-radius:0 0 28px 28px}
-/* 설치한 앱에서 맨 위 상태 표시줄(시계·배터리)에 제목이 가리지 않게 */
+/* 설치한 앱에서 맨 위 상태 표시줄(시계·배터리)에 제목이 가리지 않게
+   · 휴대폰이 알려 주는 상태 표시줄 높이(viewport-fit=cover일 때만 알려 줌) + 14px
+   · 설치한 앱으로 열었을 때는 최소 46px (높이를 안 알려 주는 휴대폰 대비) */
 .hero{padding-top:max(22px, calc(env(safe-area-inset-top, 0px) + 14px))}
+@media (display-mode: standalone), (display-mode: fullscreen){
+  .hero{padding-top:max(46px, calc(env(safe-area-inset-top, 0px) + 14px))}
+}
 .hero .in{max-width:1000px;margin:0 auto}
 .brand{display:flex;align-items:center;gap:10px}
 .logo{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.14);
@@ -235,7 +240,7 @@ button{font-family:inherit}
 /* ───── 자세히 보기 ───── */
 .dim{position:fixed;inset:0;background:rgba(5,15,9,.55);opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
 .dim.on{opacity:1;pointer-events:auto}
-.sheet{position:fixed;left:50%;bottom:0;width:100%;max-width:720px;max-height:88vh;max-height:calc(100dvh - 28px);overflow:auto;overscroll-behavior:contain;
+.sheet{position:fixed;left:50%;bottom:0;width:100%;max-width:720px;max-height:88vh;max-height:calc(100dvh - 28px - env(safe-area-inset-top, 0px));overflow:auto;overscroll-behavior:contain;
   background:var(--bg);border-radius:26px 26px 0 0;z-index:11;transform:translate(-50%,105%);transition:transform .25s ease}
 .sheet.on{transform:translate(-50%,0)}
 .shead{color:#fff;padding:18px 18px 22px;position:relative;border-radius:26px 26px 0 0;
